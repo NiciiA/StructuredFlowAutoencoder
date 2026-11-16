@@ -19,7 +19,7 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
-from torchdiffeq import odeint_adjoint
+from compat import odeint_adjoint
 
 from models.nn import MLP, sum_except_batch, log_normal
 from models.unet import ResBlock_nzt, Unet_nzt
@@ -369,7 +369,7 @@ class LLK(nn.Module):
 
     def encode(self, x: Tensor) -> Tensor:
         return odeint_adjoint(
-            self, x, torch.tensor([0.0, 1.0]),
+            self, x, x.new_tensor([0.0, 1.0]),
             adjoint_params=tuple(self.parameters()),
             method="dopri5", atol=1e-5, rtol=1e-5)[-1]
 
@@ -378,7 +378,7 @@ class LLK(nn.Module):
             t = 1.
         z = z.clone().detach().requires_grad_(True)
         f = partial(self, z=z, s=s)
-        t_span = torch.tensor([float(t), 0.0], device=x.device)
+        t_span = x.new_tensor([float(t), 0.0])
         try:
             xt = odeint_adjoint(
                 f, x, t_span,
@@ -398,7 +398,7 @@ class LLK(nn.Module):
         if t is None:
             t = 1.
         z = z.clone().detach().requires_grad_(True)
-        time_points = torch.linspace(0., float(t), num_points, device=x.device)
+        time_points = torch.linspace(0., float(t), num_points, device=x.device, dtype=x.dtype)
 
         trajectory = []
         recorded_times = []
@@ -413,7 +413,7 @@ class LLK(nn.Module):
             adjoint_params=self.parameters(),
             atol=1e-5, rtol=1e-5)
 
-        return xt[-1], torch.stack(trajectory), torch.tensor(recorded_times)
+        return xt[-1], torch.stack(trajectory), x.new_tensor(recorded_times)
 
     def decode_sequence(self, xS: Tensor, zS: Tensor, t=None, indices=None):
         """Decode a sequence of observations.
@@ -427,7 +427,7 @@ class LLK(nn.Module):
 
         if self.has_seq_emb:
             if indices is None:
-                indices = torch.arange(S, device=xS.device) / S
+                indices = torch.arange(S, device=xS.device, dtype=xS.dtype) / S
             x0S = xS.clone().detach()
             for s_idx in range(S):
                 x0S[s_idx] = self.decode(xS[s_idx], zS[s_idx], t=t, s=indices[s_idx])
@@ -472,7 +472,7 @@ class LLK(nn.Module):
         ladj = x.new_zeros(x.shape[0])
         x0, ladj = odeint_adjoint(
             augmented, (x, ladj),
-            torch.tensor([float(t), 1.0], device=x.device),
+            x.new_tensor([float(t), 1.0]),
             adjoint_params=self.parameters(),
             atol=1e-5, rtol=1e-5)
 
@@ -491,7 +491,7 @@ class LLK(nn.Module):
         S = xS.shape[0]
 
         if self.has_seq_emb:
-            indices = torch.arange(S, device=xS.device) / S
+            indices = torch.arange(S, device=xS.device, dtype=xS.dtype) / S
             out = 0
             for s_idx in range(S):
                 out += self.log_prob(xS[s_idx], zS[s_idx], source=source, s=indices[s_idx])

@@ -6,7 +6,6 @@ import torch.nn.functional as F
 from torch.func import grad, vmap
 from functools import partial
 
-torch.set_default_dtype(torch.float32)
 
 # def timestep_embedding(timesteps:torch.Tensor, dim:int, freqs:int=2) -> torch.Tensor:
 #     """
@@ -378,7 +377,7 @@ class Unet(nn.Module):
         # print("cemb", cemb.shape)
         
         hs = []
-        h = x.type(self.dtype)
+        h = x.to(dtype=next(self.parameters()).dtype)
         for block in self.downblocks:
             h = block(h, temb, cemb)
             hs.append(h)
@@ -390,7 +389,7 @@ class Unet(nn.Module):
                 h = F.interpolate(h, size=_hs.shape[-2:], mode='nearest')  # Upsample _hs to match h
             h = torch.cat([h, _hs], dim = 1)
             h = block(h, temb, cemb)
-        h = h.type(self.dtype)
+        h = h.to(dtype=next(self.parameters()).dtype)
         return self.out(h)
 
 class Unet_nz(nn.Module):
@@ -464,7 +463,7 @@ class Unet_nz(nn.Module):
         # print("temb", temb.shape)
         temb = self.temb_layer(temb)
         hs = []
-        h = x.type(self.dtype)
+        h = x.to(dtype=next(self.parameters()).dtype)
         for block in self.downblocks:
             h = block(h, temb)
             hs.append(h)
@@ -476,7 +475,7 @@ class Unet_nz(nn.Module):
                 h = F.interpolate(h, size=_hs.shape[-2:], mode='nearest')  # Upsample _hs to match h
             h = torch.cat([h, _hs], dim = 1)
             h = block(h, temb)
-        h = h.type(self.dtype)
+        h = h.to(dtype=next(self.parameters()).dtype)
         return self.out(h)
 
 
@@ -549,7 +548,7 @@ class Unet_nzt(nn.Module):
     def forward(self, x:torch.Tensor) -> torch.Tensor:
 
         hs = []
-        h = x.type(self.dtype)
+        h = x.to(dtype=next(self.parameters()).dtype)
         for block in self.downblocks:
             h = block(h)
             hs.append(h)
@@ -561,6 +560,6 @@ class Unet_nzt(nn.Module):
                 h = F.interpolate(h, size=_hs.shape[-2:], mode='nearest')  # Upsample _hs to match h
             h = torch.cat([h, _hs], dim = 1)
             h = block(h)
-        h = h.type(self.dtype)
+        h = h.to(dtype=next(self.parameters()).dtype)
         return self.out(h)
 

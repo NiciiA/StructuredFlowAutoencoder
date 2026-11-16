@@ -1,3 +1,4 @@
+from compat import DeviceLightningModule, floating_dtype, prepare_models, trainer_device_kwargs
 import os
 import itertools
 import numpy as np
@@ -15,7 +16,7 @@ from sfa_llk import LLK
 from sfa import FlowMatchingLoss, CNF, GaussianPrior
 from callbacks import PlotLogLikelihoodCallback, PlotLossCallback
 
-from torchdiffeq import odeint_adjoint as odeint
+from compat import odeint_adjoint as odeint
 from sklearn.cluster import KMeans
 from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 from torchmetrics.image.fid import FrechetInceptionDistance
@@ -34,12 +35,11 @@ from dataloader.dataloader_hvg import *
 import gc
 gc.collect()
 
-torch.set_default_dtype(torch.float64)
 torch.set_printoptions(precision=3)
 
 
 
-class LightningModule(pl.LightningModule):
+class LightningModule(DeviceLightningModule):
 	def __init__(self, vt: nn.Module, rt: nn.Module, priorz, config, args):
 		super().__init__()
 		self.config = config
@@ -56,12 +56,13 @@ class LightningModule(pl.LightningModule):
 		self.last_validation_batch = None
 
 	def setup(self, stage=None):
+		super().setup(stage)
 
 		if self.config.model.cnn:
 			self.c = self.config.data.channel
-			self.priory = Normal(torch.zeros(self.c, self.p, self.p).to(self.device), torch.ones(self.c, self.p, self.p).to(self.device))
+			self.priory = self.standard_normal(self.c, self.p, self.p)
 		else:
-			self.priory = Normal(torch.zeros(self.p), torch.ones(self.p))
+			self.priory = self.standard_normal(self.p)
 
 		self.flow_matching_loss = FlowMatchingLoss(
 			self.vt, self.rt, self.priorz,
@@ -71,7 +72,7 @@ class LightningModule(pl.LightningModule):
 	def training_step(self, batch, batch_idx):
 		# print("train")
 		X, y = batch  # Assuming the batch is the input data `x`
-		loss = self.flow_matching_loss(X.to(torch.float64))
+		loss = self.flow_matching_loss(X.to(self.dtype))
 
 		self.log('train_loss', loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
@@ -87,11 +88,11 @@ class LightningModule(pl.LightningModule):
 
 	def validation_step(self, batch, batch_idx):
 		X, y = batch
-		val_loss = self.flow_matching_loss(X.to(torch.float64))
+		val_loss = self.flow_matching_loss(X.to(self.dtype))
 
 		# Store the last batch for plotting
 		if batch_idx == self.trainer.num_val_batches[0] - 1:
-			self.last_validation_batch = {"X": X.to(torch.float64), "y": y}
+			self.last_validation_batch = {"X": X.to(self.dtype), "y": y}
 
 		self.log('val_loss', val_loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
@@ -116,7 +117,7 @@ class LightningModule(pl.LightningModule):
 					# self.generate()
 					self.plot_latent(X, y)
 
-			log_post_z = self.sample_and_log(X.to(torch.float64), y)
+			log_post_z = self.sample_and_log(X.to(self.dtype), y)
 			self.log('tra_log_post_z', log_post_z, on_step=False, on_epoch=True, sync_dist=True, logger=True)
 		# Clear the stored batch for next epoch
 		self.last_validation_batch = None
@@ -158,8 +159,8 @@ class LightningModule(pl.LightningModule):
 		self.vt.eval()
 		self.rt.eval()
 
-		z0 = self.priorz.sample((self.config.sample.n_gen,)).to(self.config.device)
-		x0 = torch.randn(self.config.sample.n_gen, self.config.data.size, device=self.config.device)
+		z0 = self.priorz.sample((self.config.sample.n_gen,)).to(device=self.config.device, dtype=floating_dtype(self.config.device))
+		x0 = torch.randn(self.config.sample.n_gen, self.config.data.size, device=self.config.device, dtype=self.dtype)
 		
 		x1 = self.vt.decode(x0, z0)
 		z1 = self.rt.decode(z0, x1)
@@ -292,25 +293,25 @@ class LightningModule(pl.LightningModule):
 		return log_post_z #, log_lik
 
 	def test_generate(self, n):
-		z1 = self.priorz.sample((n,)).to(self.config.device)
-		x1 = torch.randn(n, self.config.data.size, device=self.config.device)
+		z1 = self.priorz.sample((n,)).to(device=self.config.device, dtype=floating_dtype(self.config.device))
+		x1 = torch.randn(n, self.config.data.size, device=self.config.device, dtype=self.dtype)
 
 		x0 = self.vt.decode(x1, z1)
 		if self.config.flow.fix_z:
 			z0 = self.rt.sample(x0)
 		else:
-			z1 = self.priorz.sample((len(x),)).to(self.config.device)
+			z1 = self.priorz.sample((len(x),)).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 			z0 = self.rt.decode(z1, x0)
 
 		return x0
 
 	def test_regenerate(self, x, y):
 		
-		x1 = torch.randn(len(x), self.config.data.size, device=self.config.device)
+		x1 = torch.randn(len(x), self.config.data.size, device=self.config.device, dtype=self.dtype)
 		if self.config.flow.fix_z:
 			z0 = self.rt.sample(x)
 		else:
-			z1 = self.priorz.sample((len(x),)).to(self.config.device)
+			z1 = self.priorz.sample((len(x),)).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 			z0 = self.rt.decode(z1, x)
 
 		x0 = self.vt.decode(x1, z0)
@@ -476,13 +477,13 @@ class LightningModule(pl.LightningModule):
 		# compute distance between true sample to generated samples
 		if self.config.model.cnn:
 			if self.args.sample:
-				nmi, ari, vs = self.test_plot_latent(X.to(torch.float64), y, in_sample=self.config.data.in_sample)
+				nmi, ari, vs = self.test_plot_latent(X.to(self.dtype), y, in_sample=self.config.data.in_sample)
 				self.log('test_nmi', nmi, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 				self.log('test_ari', ari, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 				self.log('test_vendi', vs, on_step=True, on_epoch=True, sync_dist=True, logger=True)
 
 			elif self.args.ood:
-				eps = self.test_ood(X.to(torch.float64), y)
+				eps = self.test_ood(X.to(self.dtype), y)
 				if eps is not None:
 					self.eps.append(eps)
 		else:
@@ -501,12 +502,12 @@ class LightningModule(pl.LightningModule):
 
 				self.log('test_emd', d_emd, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 			elif self.args.config == "hvg.yml":
-				nmi, ari, vs = self.test_plot_latent(X.to(torch.float64), y)
+				nmi, ari, vs = self.test_plot_latent(X.to(self.dtype), y)
 				self.log('test_nmi', nmi, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 				self.log('test_ari', ari, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 				self.log('test_vendi', vs, on_step=True, on_epoch=True, sync_dist=True, logger=True)
 				# also evaluate the generated x 
-				vs_x, xnew = self.test_regenerate(X.to(torch.float64), y)
+				vs_x, xnew = self.test_regenerate(X.to(self.dtype), y)
 				self.log('test_vendi_x', vs_x, on_step=True, on_epoch=True, sync_dist=True, logger=True)
 
 				# xnew = self.test_generate(n)
@@ -534,22 +535,22 @@ class PinWheelRunner():
 		self.d = self.config.flow.z_dim
 		self.p = self.config.data.size
 
-		self.vt = LLK(self.config.data.size, self.config.flow.z_dim, model="mlp", hidden_features=[self.config.model.ngf]*5).to(self.config.device)
+		self.vt = LLK(self.config.data.size, self.config.flow.z_dim, model="mlp", hidden_features=[self.config.model.ngf]*5).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 		if self.config.flow.fix_z:
 			self.rt = GaussianPrior(
 				self.config.data.size, self.d, hidden_features=[self.config.flow.ngf]*1,
 				freqs=self.config.flow.freqs,
 				fct=nn.Tanh(),
-				).to(self.config.device)
+				).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 		else:
 			self.rt = CNF(
 				self.config.data.size, 
 				self.config.flow.z_dim, 
 				hidden_features=[self.config.flow.ngf]*0,
 				freqs=self.config.flow.freqs
-				).to(self.config.device)
+				).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 
-		self.priorz = Normal(torch.zeros(self.d), torch.ones(self.d))
+		self.priorz = Normal(torch.zeros(self.d, dtype=floating_dtype(self.config.device)), torch.ones(self.d, dtype=floating_dtype(self.config.device)))
 
 		# Define the ModelCheckpoint callback
 		checkpoint_callback = ModelCheckpoint(
@@ -563,25 +564,12 @@ class PinWheelRunner():
 		plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
 		# Initialize the Trainer
 
-		if torch.cuda.is_available():
-			accelerator = "gpu"
-			strategy = "ddp"
-			devices = "auto"
-		elif torch.backends.mps.is_available():
-			accelerator = "mps"
-			strategy = "auto"
-			devices = 1
-		else:
-			accelerator = "cpu"
-			strategy = "auto"
-			devices = "auto"
+		prepare_models(self)
 
 		self.trainer = pl.Trainer(
 			max_epochs=self.config.training.n_epochs, 
 			# accelerator='gpu',
-			accelerator = accelerator,
-			devices=devices,
-			strategy=strategy,
+			**trainer_device_kwargs(),
 			callbacks=[checkpoint_callback, plot_llk_callback, plot_loss_callback]
 		)
 
@@ -632,7 +620,7 @@ class MNISTRunner():
 		self.d = self.config.flow.z_dim
 		self.c, self.p = self.config.data.channel, self.config.data.size
 
-		self.priorz = Normal(torch.zeros(self.d), torch.ones(self.d))
+		self.priorz = Normal(torch.zeros(self.d, dtype=floating_dtype(self.config.device)), torch.ones(self.d, dtype=floating_dtype(self.config.device)))
 
 		vt_type = getattr(self.config.model, 'type', 'cnn')
 		self.vt = LLK(
@@ -652,13 +640,13 @@ class MNISTRunner():
 				self.c*self.p**2, self.d, hidden_features=[self.config.flow.ngf]*0,
 				freqs=self.config.flow.freqs,
 				fct=nn.Tanh(),
-				).to(self.config.device)
+				).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 		else:
 			self.rt = CNF(
 			    self.c*self.p**2, self.d, hidden_features=[self.config.flow.ngf]*0,
 			    hidden_dim=256,
 			    freqs=self.config.flow.freqs,
-			    ).to(self.config.device)
+			    ).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 
 
 		# Define the ModelCheckpoint callback
@@ -671,18 +659,7 @@ class MNISTRunner():
 		)
 		# Initialize the Trainer
 
-		if torch.cuda.is_available():
-			accelerator = "gpu"
-			strategy = "ddp"
-			devices = "auto"
-		elif torch.backends.mps.is_available():
-			accelerator = "mps"
-			strategy = "auto"
-			devices = 1
-		else:
-			accelerator = "cpu"
-			strategy = "auto"
-			devices = "auto"
+		prepare_models(self)
 
 		plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
 		plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))
@@ -690,9 +667,7 @@ class MNISTRunner():
 		self.trainer = pl.Trainer(
 			max_epochs=self.config.training.n_epochs, 
 			# accelerator='gpu',
-			accelerator = accelerator,
-			devices=devices,
-			strategy=strategy,
+			**trainer_device_kwargs(),
 			callbacks=[plot_loss_callback, plot_llk_callback, self.checkpoint_callback]
 		)
 
@@ -769,16 +744,16 @@ class HVGRunner():
 					hidden_dim=800, # 500 was ok, 800 is unstable
 					fct=nn.Softplus(),
 					freqs=20,
-					).to(self.config.device)
+					).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 
 		self.rt = self.rt = GaussianPrior(
 					self.p, self.d, hidden_features=[self.config.flow.ngf]*0,
 					freqs=2,
 					fct=nn.Softplus(),
-					).to(self.config.device) 
+					).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 
 
-		self.priorz = Normal(torch.zeros(self.d), torch.ones(self.d))
+		self.priorz = Normal(torch.zeros(self.d, dtype=floating_dtype(self.config.device)), torch.ones(self.d, dtype=floating_dtype(self.config.device)))
 
 		# Define the ModelCheckpoint callback
 		self.checkpoint_callback = ModelCheckpoint(
@@ -790,18 +765,7 @@ class HVGRunner():
 		)
 		# Initialize the Trainer
 
-		if torch.cuda.is_available():
-			accelerator = "gpu"
-			strategy = "ddp"
-			devices = "auto"
-		elif torch.backends.mps.is_available():
-			accelerator = "mps"
-			strategy = "auto"
-			devices = 1
-		else:
-			accelerator = "cpu"
-			strategy = "auto"
-			devices = "auto"
+		prepare_models(self)
 
 		plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
 		plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))
@@ -809,9 +773,7 @@ class HVGRunner():
 		self.trainer = pl.Trainer(
 			max_epochs=self.config.training.n_epochs, 
 			# accelerator='gpu',
-			accelerator = accelerator,
-			devices=devices,
-			strategy=strategy,
+			**trainer_device_kwargs(),
 			callbacks=[plot_loss_callback, plot_llk_callback, self.checkpoint_callback]
 		)
 

@@ -1,3 +1,4 @@
+from compat import DeviceLightningModule, floating_dtype, prepare_models, trainer_device_kwargs
 import os
 import itertools
 import numpy as np
@@ -19,10 +20,9 @@ import gc
 gc.collect()
 
 torch.set_printoptions(precision=3)
-torch.set_default_dtype(torch.float64)
 
 # Define your LightningModule
-class FlowMatchingLightningModule(pl.LightningModule):
+class FlowMatchingLightningModule(DeviceLightningModule):
     def __init__(self, vt: nn.Module, rt: nn.Module, prior, config, args):
         super().__init__()
         self.config = config
@@ -40,10 +40,11 @@ class FlowMatchingLightningModule(pl.LightningModule):
         self.q = self.config.data.q
 
     def setup(self, stage=None):
+        super().setup(stage)
         if not self.config.model.cnn:
-            self.priory = Normal(torch.zeros(self.p**2).to(self.device), torch.ones(self.p**2).to(self.device))
+            self.priory = self.standard_normal(self.p**2)
         else:
-            self.priory = Normal(torch.zeros(self.c, self.p, self.p).to(self.device), torch.ones(self.c, self.p, self.p).to(self.device))
+            self.priory = self.standard_normal(self.c, self.p, self.p)
         
         self.flow_matching_loss = FlowMatchingLossSeq(
             self.vt, self.rt, self.prior,
@@ -57,11 +58,11 @@ class FlowMatchingLightningModule(pl.LightningModule):
         z0 = self.prior.sample(n, self.config.data.S, device=self.device)
 
         if not self.config.flow.cnn:
-            x0 = torch.randn(self.config.data.S, n, 1, self.config.data.p, self.config.data.p, device=self.device) # channel=1
+            x0 = torch.randn(self.config.data.S, n, 1, self.config.data.p, self.config.data.p, device=self.device, dtype=self.dtype) # channel=1
             x1 = self.vt.decode_sequence(x0, z0)
             z1 = self.rt.decode_sequence(z0, x1.flatten(start_dim=2), indices=indices)
         else:  
-            x0 = torch.randn(self.config.data.S, n, 1, self.config.data.p, self.config.data.p, device=self.device) # channel=1
+            x0 = torch.randn(self.config.data.S, n, 1, self.config.data.p, self.config.data.p, device=self.device, dtype=self.dtype) # channel=1
             x1 = self.vt.decode_sequence(x0, z0)
             z1 = self.rt.decode_sequence(z0, x1, indices=indices)
 
@@ -74,7 +75,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # print("train")
         X, y, indices = batch  # Assuming the batch is the input data `x`
-        X = X.view(self.config.data.S, -1, 1, self.config.data.p, self.config.data.p).to(dtype=torch.float64)
+        X = X.view(self.config.data.S, -1, 1, self.config.data.p, self.config.data.p).to(dtype=self.dtype)
         indices = indices.view(self.config.data.S, -1)
         
         loss = self.flow_matching_loss(X, indices=indices)
@@ -92,7 +93,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         X, y, indices = batch
 
-        X = X.view(self.config.data.S, -1, 1, self.config.data.p, self.config.data.p).to(dtype=torch.float64)
+        X = X.view(self.config.data.S, -1, 1, self.config.data.p, self.config.data.p).to(dtype=self.dtype)
         indices = indices.view(self.config.data.S, -1)
         val_loss = self.flow_matching_loss(X, indices=indices)
 
@@ -143,7 +144,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
         with torch.no_grad():
             # find the latent z given data x
             z0 = self.prior.sample(n, self.config.data.S, device=self.device) # S,n,p
-            x0 = torch.randn(self.config.data.S, n, 1, self.config.data.p, self.config.data.p, device=self.device) # channel=1
+            x0 = torch.randn(self.config.data.S, n, 1, self.config.data.p, self.config.data.p, device=self.device, dtype=self.dtype) # channel=1
 
             if self.config.flow.cnn:
                 z1 = self.rt.decode_sequence(z0, x, indices=indices)
@@ -208,12 +209,12 @@ class FlowMatchingLightningModule(pl.LightningModule):
         n = x.shape[0]
 
         if self.args.sample:
-            x = x.view(self.config.data.S, -1, 1, self.config.data.p, self.config.data.p).to(dtype=torch.float64)
+            x = x.view(self.config.data.S, -1, 1, self.config.data.p, self.config.data.p).to(dtype=self.dtype)
             indices = indices.view(self.config.data.S, -1)
 
             
             z0 = self.prior.sample(n, self.config.data.S, device=self.device) # S,n,p
-            x0 = torch.randn(self.config.data.S, n, 1, self.config.data.p, self.config.data.p, device=self.device) # channel=1
+            x0 = torch.randn(self.config.data.S, n, 1, self.config.data.p, self.config.data.p, device=self.device, dtype=self.dtype) # channel=1
             
             if self.config.flow.cnn:
                 z1 = self.rt.decode_sequence(z0, x, indices=indices)
@@ -241,12 +242,12 @@ class FlowMatchingLightningModule(pl.LightningModule):
         elif self.args.predict:
             q = np.floor(np.sqrt(F)).astype(np.int32)
             # forward prediction, take the first length xS subsequence as context, then forward prediction
-            x = x.view(F, n, 1, self.config.data.p, self.config.data.p).to(dtype=torch.float64)
+            x = x.view(F, n, 1, self.config.data.p, self.config.data.p).to(dtype=self.dtype)
 
             z0 = self.prior.sample(n, F, device=self.device) # S,n,p
 
             x_ = x[:self.config.data.S] # .flatten(start_dim=2)
-            x0 = torch.randn(F, n, 1, self.config.data.p, self.config.data.p, device=self.device) # channel=1
+            x0 = torch.randn(F, n, 1, self.config.data.p, self.config.data.p, device=self.device, dtype=self.dtype) # channel=1
 
             if self.config.flow.cnn:
                 z1 = self.rt.predict_future(F, z0, x_)
@@ -350,18 +351,7 @@ class PENDULUMRunner():
             mode='min'  # Minimize the validation loss
         )
 
-        if torch.cuda.is_available():
-            accelerator = "gpu"
-            strategy = "ddp"
-            devices = "auto"
-        elif torch.backends.mps.is_available():
-            accelerator = "mps"
-            strategy = "auto"
-            devices = 1
-        else:
-            accelerator = "cpu"
-            strategy = "auto"
-            devices = "auto"
+        prepare_models(self)
 
         plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1, logy=True)
         plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("val_log_lik", "val_log_post"))
@@ -371,9 +361,7 @@ class PENDULUMRunner():
             # gradient_clip_val=self.config.optim.clip_value,
             max_epochs=self.config.training.n_epochs,
             # accelerator='gpu',
-            accelerator = accelerator,
-            devices=devices,
-            strategy=strategy,
+            **trainer_device_kwargs(),
             callbacks=[plot_loss_callback, plot_gradnorm_callback, plot_rmse_callback, self.checkpoint_callback],
         )
 

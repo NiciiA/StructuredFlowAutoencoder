@@ -26,12 +26,12 @@ class GumbelSoftmax(nn.Module):
         self.hard = hard
         # self.device = device
      
-    def sample_gumbel(self, shape, eps=1e-20):
-        U = torch.rand(shape)
+    def sample_gumbel(self, shape, eps=1e-20, *, device=None, dtype=None):
+        U = torch.rand(shape, device=device, dtype=dtype)
         return -torch.log(-torch.log(U + eps) + eps)
 
     def gumbel_softmax_sample(self, logits):
-        y = logits + self.sample_gumbel(logits.size())
+        y = logits + self.sample_gumbel(logits.size(), device=logits.device, dtype=logits.dtype)
         return F.softmax(y / self.temperature, dim=-1)
 
     def sample(self, logits):
@@ -108,19 +108,19 @@ class GaussianMixtureComponent(nn.Module):
 
     def rsample(self, pi:Tensor, x:Tensor,t:Tensor=None):
         if t is None:
-            t = torch.tensor(0., device=x.device)
+            t = x.new_tensor(0.)
         dist = self(pi, x, t)
         return dist.rsample()
 
     def sample(self, pi:Tensor, x:Tensor, t:Tensor=None):
         if t is None:
-            t = torch.tensor(0., device=x.device)
+            t = x.new_tensor(0.)
         dist = self(pi, x, t)
         return dist.sample()
 
     def log_prob(self, pi:Tensor, x:Tensor, z:Tensor, t:Tensor=None):
         if t is None:
-            t = torch.tensor(0., device=x.device)
+            t = x.new_tensor(0.)
         dist = self(pi, x, t)
         return dist.log_prob(z).sum(-1)
 
@@ -204,7 +204,7 @@ class GaussianMixturePrior(nn.Module):
         
     def forward(self, pi:Tensor):
         phi = self.hyper(pi)
-        return Normal(phi, torch.ones(self.z_features).to(pi.device) * .1)
+        return Normal(phi, phi.new_ones(self.z_features) * .1)
 
     def sample(self, pi, size):
         return self(pi).sample(size)[0]
@@ -236,12 +236,12 @@ class CatNF_fixed(nn.Module):
 
         self.register_buffer('freqs', torch.arange(1, freqs + 1) * torch.pi)
         
-    def _sample_gumbel(self, shape, device, eps=1e-20):
-        U = torch.rand(shape, device=device)
+    def _sample_gumbel(self, shape, device, eps=1e-20, *, dtype=None):
+        U = torch.rand(shape, device=device, dtype=dtype)
         return -torch.log(-torch.log(U + eps) + eps)
 
     def _gumbel_softmax_sample(self, logits):
-        y = logits + self._sample_gumbel(logits.size(), logits.device)
+        y = logits + self._sample_gumbel(logits.size(), logits.device, dtype=logits.dtype)
         return F.softmax(y / self.temp, dim=-1)
 
     def _sample(self, logits):
@@ -336,7 +336,7 @@ class FlowMatchingLossMixture(nn.Module):
 
     def forward(self, x: Tensor, hard=False) -> Tensor:
         B = len(x)
-        _t = torch.rand(B, device=x.device)
+        _t = torch.rand(B, device=x.device, dtype=x.dtype)
         t = _t.reshape(-1, *([1] * (x.ndim - 1)))
 
         if self.priory is not None:

@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.distributions import Normal
-from torchdiffeq import odeint, odeint_adjoint
+from compat import odeint, odeint_adjoint
 
 from dataloader.dataloader_pinwheel import *
 from utils import *
@@ -29,8 +29,10 @@ class GaussianPrior(nn.Module):
         self.z_features = z_features
         self.register_buffer('freqs', torch.arange(1, freqs + 1) * torch.pi)
         
-    def forward(self, x:Tensor, t:Tensor=torch.Tensor([0]), min_variance=1e-5):
+    def forward(self, x:Tensor, t:Tensor=None, min_variance=1e-5):
         x = x.flatten(start_dim=1) if x.ndim >= 4 else x
+        if t is None:
+            t = x.new_tensor(0.)
         t = self.freqs * t[..., None]
         xemb = self.embx(x)
         temb = torch.cat((t.cos(), t.sin()), dim=-1)
@@ -40,15 +42,15 @@ class GaussianPrior(nn.Module):
         mu, log_sigma = phi.chunk(2, dim=-1)
         return Normal((mu), F.softplus(log_sigma)+min_variance)
 
-    def rsample(self, x:Tensor,t:Tensor=torch.Tensor([0])):
+    def rsample(self, x:Tensor,t:Tensor=None):
         dist = self(x, t)
         return dist.rsample()
 
-    def sample(self, x:Tensor, t:Tensor=torch.Tensor([0])):
+    def sample(self, x:Tensor, t:Tensor=None):
         dist = self(x, t)
         return dist.sample()
 
-    def log_prob(self, x:Tensor, z:Tensor, t:Tensor=torch.Tensor([0])):
+    def log_prob(self, x:Tensor, z:Tensor, t:Tensor=None):
         dist = self(x, t)
         return dist.log_prob(z).sum(-1)
 
@@ -126,9 +128,9 @@ class FlowMatchingLoss(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         if self.fixz:
-            _t = torch.rand(len(x), device=x.device)
+            _t = torch.rand(len(x), device=x.device, dtype=x.dtype)
         else:
-            _t = torch.rand(1, device=x.device)
+            _t = torch.rand(1, device=x.device, dtype=x.dtype)
         t = _t.reshape(-1, *([1] * (x.ndim - 1)))
         x0 = torch.randn_like(x)
         xt = (1 - t) * x + (self.sig_min + (1 - self.sig_min) * t) * x0

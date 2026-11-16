@@ -31,8 +31,8 @@ class LatentDynamicalSystem(nn.Module):
         """
         super(LatentDynamicalSystem, self).__init__()
         self.latent_dim = latent_dim
-        self.mu1 = torch.zeros(latent_dim)  # Mean vector for z1
-        self.log_Q1 = torch.log(torch.ones(latent_dim)*0.005) # torch.zeros(latent_dim)  # Log-diagonal of covariance matrix Q1
+        self.register_buffer('mu1', torch.zeros(latent_dim), persistent=False)  # Mean vector for z1
+        self.register_buffer('log_Q1', torch.log(torch.ones(latent_dim)*0.005), persistent=False) # torch.zeros(latent_dim)  # Log-diagonal of covariance matrix Q1
         delta = 0.45  # rotation angle per step (~2.5 cycles in 36 steps)
         A = torch.eye(latent_dim)
         # Apply rotation in the first 2 dimensions
@@ -40,8 +40,8 @@ class LatentDynamicalSystem(nn.Module):
         A[0, 1] = -math.sin(delta)
         A[1, 0] = math.sin(delta)
         A[1, 1] = math.cos(delta)
-        self.A = A  # Rotation transition matrix A
-        self.log_Q = torch.log(torch.ones(latent_dim)*0.02)  # Log-diagonal of covariance matrix Q for subsequent steps
+        self.register_buffer('A', A, persistent=False)  # Rotation transition matrix A
+        self.register_buffer('log_Q', torch.log(torch.ones(latent_dim)*0.02), persistent=False)  # Log-diagonal of covariance matrix Q for subsequent steps
 
 
     def _get_distribution(self, mu, log_var):
@@ -60,7 +60,7 @@ class LatentDynamicalSystem(nn.Module):
         Returns:
         - zs: Sequence of latent variables (shape: [T, latent_dim])
         """
-        zs = torch.zeros((S, n, self.latent_dim), device=device)
+        zs = torch.zeros((S, n, self.latent_dim), device=device, dtype=self.mu1.dtype)
         # First latent variable z1 ~ N(mu1, Q1)
         dist_z1 = self._get_distribution(self.mu1.to(device), self.log_Q1.to(device))
         zs[0] = dist_z1.rsample((n,))  # Use rsample for reparameterization
@@ -81,7 +81,7 @@ class LatentDynamicalSystem(nn.Module):
         Returns:
         - zs: Sequence of latent variables (shape: [T, latent_dim])
         """
-        zs = torch.zeros((S, n, self.latent_dim)).to(device)
+        zs = torch.zeros((S, n, self.latent_dim), device=device, dtype=self.mu1.dtype)
         # First latent variable z1 ~ N(mu1, Q1)
         dist_z1 = self._get_distribution(self.mu1.to(device), self.log_Q1.to(device))
         zs[0] = dist_z1.sample((n,)).to(device) 
@@ -137,13 +137,13 @@ class sGRU(nn.Module):
         batch_size = x.shape[1]
         if self.bidirectional:
             # Initial hidden state
-            h0 = torch.zeros(2*self.num_layers, batch_size, self.hidden_size).to(x.device)
+            h0 = x.new_zeros(2*self.num_layers, batch_size, self.hidden_size)
             # Forward propagate through RNN
             out, hs = self.gru(x, h0)
             # compute embeded x
             emb = torch.concatenate([hs[0], hs[1]], dim=-1).view(batch_size, self.hidden_size*2)
         else:
-            h0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(x.device)
+            h0 = x.new_zeros(self.num_layers, batch_size, self.hidden_size)
             # Forward propagate through RNN
             out, hs = self.gru(x, h0)
             emb = hs
@@ -314,7 +314,7 @@ class fullGauss(nn.Module):
         mu0S = zS.clone().detach()
         xcemb = self._encode_x_window(xS, indices)  # sets self._hx_all
 
-        zSemb = [torch.zeros((self.num_layers, B, self.num_hidden_z), device=xS.device)]
+        zSemb = [xS.new_zeros((self.num_layers, B, self.num_hidden_z))]
 
         out = self.decode(zSemb[-1].view(-1, self.num_hidden_z * self.num_layers),
                           xcemb, indices[0], t, deterministic)
@@ -389,9 +389,9 @@ class FlowMatchingLossSeq(nn.Module):
     def forward(self, x: Tensor, indices=None) -> Tensor:
         S, nbatch = x.shape[0], x.shape[1]
         if indices is None:
-            indices = torch.arange(S, device=x.device) / S
+            indices = torch.arange(S, device=x.device, dtype=x.dtype) / S
 
-        _t = torch.rand(1).to(x.device)
+        _t = torch.rand(1, device=x.device, dtype=x.dtype)
         t = torch.ones_like(x[..., 0, None]) * _t
 
         x1 = torch.randn_like(x).to(device=x.device)
@@ -435,7 +435,7 @@ class FlowMatchingLossSeq(nn.Module):
 
 
         # Smoothness regularization only
-        reg_loss2 = reg_sq.mean() / S if S > 2 else torch.zeros(1, device=x.device)
+        reg_loss2 = reg_sq.mean() / S if S > 2 else x.new_zeros(1)
         beta2 = loss.detach() / (torch.abs(reg_loss2.detach()) + 1e-8)
         return loss + reg_loss2 * self.alpha * beta2
 

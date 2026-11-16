@@ -1,3 +1,4 @@
+from compat import DeviceLightningModule, floating_dtype, prepare_models, trainer_device_kwargs
 import os
 import itertools
 import numpy as np
@@ -20,16 +21,14 @@ from dataloader.dataloader_pinwheel import *
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from lightning.pytorch.strategies import DDPStrategy
 
 
 import gc
 gc.collect()
 
-torch.set_default_dtype(torch.float64)
 torch.set_printoptions(precision=3)
 
-class PinWheelMixtureLightningModule(pl.LightningModule):
+class PinWheelMixtureLightningModule(DeviceLightningModule):
     def __init__(self, vt: nn.Module, Rt: nn.Module, rt: nn.Module, priorz, config, args):
         super().__init__()
         self.config = config
@@ -53,7 +52,8 @@ class PinWheelMixtureLightningModule(pl.LightningModule):
 
 
     def setup(self, stage=None):
-        self.priorpi = Normal(torch.zeros(self.k, device=self.device), torch.ones(self.k, device=self.device))
+        super().setup(stage)
+        self.priorpi = self.standard_normal(self.k)
 
         self.flow_matching_loss = FlowMatchingLossMixture(
             self.vt, self.Rt, self.rt, self.priorpi, self.priorz,
@@ -62,7 +62,7 @@ class PinWheelMixtureLightningModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # print("train")
         X, y = batch  # Assuming the batch is the input data `x`
-        loss = self.flow_matching_loss(X.to(torch.float64))
+        loss = self.flow_matching_loss(X.to(self.dtype))
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
@@ -76,11 +76,11 @@ class PinWheelMixtureLightningModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         X, y = batch
-        val_loss = self.flow_matching_loss(X.to(torch.float64))
+        val_loss = self.flow_matching_loss(X.to(self.dtype))
 
         # Store the last batch for plotting
         if batch_idx == self.trainer.num_val_batches[0] - 1:
-            self.last_validation_batch = {"X": X.to(torch.float64), "y": y}
+            self.last_validation_batch = {"X": X.to(self.dtype), "y": y}
 
         self.log('val_loss', val_loss, on_step=True, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
@@ -149,13 +149,13 @@ class PinWheelMixtureLightningModule(pl.LightningModule):
 
         with torch.no_grad():
             # evluate log probability 
-            x1 = torch.randn(len(x), self.config.data.size)
+            x1 = torch.randn(len(x), self.config.data.size, device=self.device, dtype=self.dtype)
             # generated samples
             logits1 = self.priorpi.sample((len(x),)).to(x.device)
             # z1idx = F.gumbel_softmax(logits1, tau=self.config.flow.tau, hard=False)
             # z1 = self.priorz.sample(z1idx, (1,)).to(x.device)
 
-            t0 = torch.tensor(0., device=x.device)
+            t0 = torch.tensor(0., device=x.device, dtype=self.dtype)
             logits0, z0idx = self.Rt.rsample(x, t0)
             z0 = self.rt.sample(logits0, x)
             # pi0 = softmax(logits0/self.beta, dim=-1)
@@ -178,11 +178,11 @@ class PinWheelMixtureLightningModule(pl.LightningModule):
 
         with torch.no_grad():
             # posterior predictive
-            x1 = torch.randn(self.config.sample.n_gen, self.config.data.size)
+            x1 = torch.randn(self.config.sample.n_gen, self.config.data.size, device=self.device, dtype=self.dtype)
             # generated samples
             logits1 = self.priorpi.sample((self.config.sample.n_gen,)).to(x.device)
             # z1idx = F.gumbel_softmax(logits1, tau=self.config.flow.tau, hard=False)
-            t0 = torch.tensor(0., device=self.device)
+            t0 = torch.tensor(0., device=self.device, dtype=self.dtype)
             _, z1idx = self.Rt.rsample(None, t0, logits=logits1)
             z1 = self.priorz.sample(logits1, (1,)).to(x.device)
 
@@ -214,13 +214,13 @@ class PinWheelMixtureLightningModule(pl.LightningModule):
                 for j, cax in enumerate(rax):
                     if j<len(xk):
                         pi1 = self.priorpi.sample((100,))
-                        x0 = xk[j].unsqueeze(0).to(torch.float64).repeat(100,1)
+                        x0 = xk[j].unsqueeze(0).to(self.dtype).repeat(100,1)
                         
-                        t0 = torch.tensor(0., device=x0.device)
+                        t0 = torch.tensor(0., device=x0.device, dtype=self.dtype)
                         logits0, z0idx = self.Rt.rsample(x0, t0)
                         pi0 = softmax(logits0/self.beta, dim=-1)
                         kidx = torch.argmax(pi0, dim=-1).squeeze()
-                        cax.hist(kidx, bins=20, alpha=0.7)
+                        cax.hist(kidx.detach().cpu().numpy(), bins=20, alpha=0.7)
                     else:
                         cax.axis("off")
                     if j==0:
@@ -236,14 +236,14 @@ class PinWheelMixtureLightningModule(pl.LightningModule):
         # self.priorz.train()
 
     def test_generate(self, n):
-        x1 = torch.randn(n, self.config.data.size)
+        x1 = torch.randn(n, self.config.data.size, device=self.device, dtype=self.dtype)
         # generated samples
         logits1 = self.priorpi.sample((n,)).to(self.device)
         z1idx = F.gumbel_softmax(logits1, tau=self.config.flow.tau, hard=False)
         z1 = self.priorz.sample(z1idx, (1,))
 
         x0 = self.vt.decode(x1, z1)
-        t0 = torch.tensor(0., device=x0.device)
+        t0 = torch.tensor(0., device=x0.device, dtype=self.dtype)
 
         logits0, z0idx = self.Rt.rsample(x0, t0)
         pi0 = softmax(logits0/self.beta, dim=-1)
@@ -307,18 +307,7 @@ class PinWheelMixtureRunner():
         )
         # Initialize the Trainer
 
-        if torch.cuda.is_available():
-            accelerator = "gpu"
-            strategy = DDPStrategy(find_unused_parameters=True)
-            devices = "auto"
-        elif torch.backends.mps.is_available():
-            accelerator = "mps"
-            strategy = "auto"
-            devices = 1
-        else:
-            accelerator = "cpu"
-            strategy = "auto"
-            devices = "auto"
+        prepare_models(self)
 
         llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))
         # Add the callback
@@ -326,9 +315,7 @@ class PinWheelMixtureRunner():
         self.trainer = pl.Trainer(
             max_epochs=self.config.training.n_epochs, 
             # accelerator='gpu',
-            accelerator = accelerator,
-            devices=devices,
-            strategy=strategy,
+            **trainer_device_kwargs(),
             callbacks=[llk_callback, self.checkpoint_callback],
         )
 
@@ -369,7 +356,7 @@ class PinWheelMixtureRunner():
         self.trainer.test(model, dataloaders=test_dataloader)
 
 
-class FlowMatchingLightningModule(pl.LightningModule):
+class FlowMatchingLightningModule(DeviceLightningModule):
     def __init__(self, vt: nn.Module, Rt: nn.Module, rt, priorz, embx, config, args):
         super().__init__()
         self.config = config
@@ -394,13 +381,14 @@ class FlowMatchingLightningModule(pl.LightningModule):
         self.beta = self.temp_max
 
     def setup(self, stage=None):
+        super().setup(stage)
         # Reinitialize the distributions using the buffers now on the correct device
         # self.priorpi = Dirichlet(torch.ones(self.k).to(self.device))
-        self.priorpi = Normal(torch.zeros(self.k, device=self.device), torch.ones(self.k, device=self.device))
+        self.priorpi = self.standard_normal(self.k)
         if not self.config.model.cnn:
-            self.priory = Normal(torch.zeros(self.p**2).to(self.device), torch.ones(self.p**2).to(self.device))
+            self.priory = self.standard_normal(self.p**2)
         else:
-            self.priory = Normal(torch.zeros(self.c, self.p, self.p).to(self.device), torch.ones(self.c, self.p, self.p).to(self.device))
+            self.priory = self.standard_normal(self.c, self.p, self.p)
         
         # anneal beta from large to small
         self.flow_matching_loss = FlowMatchingLossMixture(
@@ -564,7 +552,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
 
         logits1 = self.priorpi.sample((len(x),)).to(self.device)
         pi1 = F.softmax(logits1/self.beta, dim=-1)
-        t0 = torch.tensor(0., device=self.device)
+        t0 = torch.tensor(0., device=self.device, dtype=self.dtype)
         _, z1idx = self.Rt.rsample(None, t0, logits=logits1)
         logits0, z0idx = self.Rt.rsample(_x, t0)
         pi0 = F.softmax(logits0/self.beta, dim=-1)
@@ -607,7 +595,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
                         
 
                     logits1 = self.priorpi.sample((m-1,)).to(self.device)
-                    t0 = torch.tensor(0., device=self.device)
+                    t0 = torch.tensor(0., device=self.device, dtype=self.dtype)
                     _, z1idx = self.Rt.rsample(None, t0, logits=logits1)
                     logits0, z0idx = self.Rt.rsample(_y0, t0)
                     pi0 = softmax(logits0/self.beta, dim=-1)
@@ -659,7 +647,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
                         else:
                             _y0 = y0.flatten(start_dim=1)
 
-                        t0 = torch.tensor(0., device=self.device)
+                        t0 = torch.tensor(0., device=self.device, dtype=self.dtype)
                         logits0, z0idx = self.Rt.rsample(_y0, t0)
                         pi0 = softmax(logits0/self.beta, dim=-1)
 
@@ -788,7 +776,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
 
             # generate posterior
             logits1 = self.priorpi.sample((len(xk),)).to(self.device)
-            t0 = torch.tensor(0., device=self.device)
+            t0 = torch.tensor(0., device=self.device, dtype=self.dtype)
             _, z1idx = self.Rt.rsample(None, t0, logits=logits1)
             logits0, z0idx = self.Rt.rsample(xk, t0)
             pi0 = F.softmax(logits0/self.beta, dim=-1)
@@ -834,7 +822,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
         # first sample from x
         sorted_idx = torch.argsort(y)
         xk = x[sorted_idx]
-        yk = y[sorted_idx].numpy()
+        yk = y[sorted_idx].detach().cpu().numpy()
         if self.config.model.cnn:
             xk = xk.flatten(start_dim=1)
 
@@ -851,7 +839,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
             # then sample from p(z|x)
             logits1 = self.priorpi.rsample((n,)).to(self.device)
             # z1idx = F.gumbel_softmax(logits1, tau=self.tau, hard=hard)
-            t0 = torch.tensor(0., device=self.device)
+            t0 = torch.tensor(0., device=self.device, dtype=self.dtype)
             _, z1idx = self.Rt.rsample(None, t0, logits=logits1)
 
             z1 = self.priorz.rsample(z1idx, (1,)).to(self.device)
@@ -926,11 +914,11 @@ class MNISTMixtureRunner():
 
         self.rt = GaussianMixtureComponent(
             self.k, self.d, self.c*self.p**2, hidden_features=[self.config.flow.ngf]*0
-            , hidden_dim=28*28
+            , hidden_dim=self.k
             , fct=nn.Tanh()
             , in_ch=self.c
             , freqs=self.config.flow.freqs
-            ).to(self.config.device)
+            ).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 
         self.Rt = CatNF_fixed(
             self.c*self.p**2, self.k, hidden_features=[self.config.flow.ngf]*0
@@ -939,7 +927,7 @@ class MNISTMixtureRunner():
             , fct=nn.Tanh()
             # , fct=nn.Softplus()
             , in_ch=self.c
-            ).to(self.config.device)
+            ).to(device=self.config.device, dtype=floating_dtype(self.config.device))
 
         # Define the ModelCheckpoint callback
         self.checkpoint_callback = ModelCheckpoint(
@@ -951,18 +939,7 @@ class MNISTMixtureRunner():
         )
         # Initialize the Trainer
 
-        if torch.cuda.is_available():
-            accelerator = "gpu"
-            strategy = DDPStrategy(find_unused_parameters=True)
-            devices = "auto"
-        elif torch.backends.mps.is_available():
-            accelerator = "mps"
-            strategy = "auto"
-            devices = 1
-        else:
-            accelerator = "cpu"
-            strategy = "auto"
-            devices = "auto"
+        prepare_models(self)
 
         # Add the callback
         plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
@@ -970,9 +947,7 @@ class MNISTMixtureRunner():
         self.trainer = pl.Trainer(
             max_epochs=self.config.training.n_epochs, 
             # accelerator='gpu',
-            accelerator = accelerator,
-            devices=devices,
-            strategy=strategy,
+            **trainer_device_kwargs(),
             callbacks=[plot_loss_callback, plot_llk_callback, self.checkpoint_callback],
         )
 

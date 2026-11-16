@@ -64,10 +64,10 @@ def sample_and_reconstruct_pca(
 
     # 2. Sample from the reduced dimension space
     if sampling_strategy == "mimic_projection":
-        sampled_scores_normalized = torch.randn(num_new_samples, k_components, device=device)
+        sampled_scores_normalized = torch.randn(num_new_samples, k_components, device=device, dtype=X_original.dtype)
         new_points_reduced = sampled_scores_normalized * scores_std + scores_mean
     elif sampling_strategy == "standard_normal":
-        new_points_reduced = torch.randn(num_new_samples, k_components, device=device)
+        new_points_reduced = torch.randn(num_new_samples, k_components, device=device, dtype=X_original.dtype)
     else:
         raise ValueError("Unknown sampling_strategy")
 

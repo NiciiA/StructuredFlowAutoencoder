@@ -7,7 +7,6 @@ from torch.utils.data.distributed import DistributedSampler
 
 from dataloader.dataloader_mnist import StratifiedSampler, LogitTrans, SigmoidTrans
 
-torch.set_default_dtype(torch.float64)
 
 class Transback():
     def __init__(self):
@@ -27,7 +26,8 @@ class Transback():
 
 transform = transforms.Compose([
     # transforms.Resize((14, 14)),  # Pad 2 pixels on each side (left, top, right, bottom)
-    transforms.ToTensor(),         # Convert image to PyTorch tensor
+    transforms.PILToTensor(),
+    transforms.ConvertImageDtype(torch.float64),  # Preserve CPU image preprocessing precision.
     # transforms.Lambda(lambda x: x.double())
     # transforms.Normalize((0.5,), (0.5,)) # normalize to between (-1,1)
     transforms.Lambda(lambda x: torch.clamp(x, 0.01, 0.99)),
@@ -40,7 +40,7 @@ inv_transform = transforms.Compose([
     SigmoidTrans(),
 ])
 
-def get_cifar(num_classes, dat_dir, num_per_class, num_per_class_test, download=False):
+def get_cifar(num_classes, dat_dir, num_per_class, num_per_class_test, download=True):
     
     train_dataset = CIFAR10(
                         root = dat_dir,

@@ -12,7 +12,6 @@ import gzip
 from PIL import Image # For converting NumPy array to PIL Image in __getitem__
 import shutil # For managing directories
 
-torch.set_default_dtype(torch.float64)
 
 # transform = transforms.Compose([transforms.ToTensor()])
 # transform = transforms.Compose([
@@ -42,7 +41,8 @@ class SigmoidTrans():
 
 transform = transforms.Compose([
     # transforms.Resize((14, 14)),  # Pad 2 pixels on each side (left, top, right, bottom)
-    transforms.ToTensor(),         # Convert image to PyTorch tensor
+    transforms.PILToTensor(),
+    transforms.ConvertImageDtype(torch.float64),  # Preserve CPU image preprocessing precision.
     # transforms.Lambda(lambda x: x.double())
     # transforms.Normalize((0.5,), (0.5,)) # normalize to between (-1,1)
     LogitTrans(),
@@ -78,11 +78,12 @@ class StratifiedSampler(Sampler):
         return self.samples_per_class * len(self.indices_per_class)
 
 
-def get_mnist(num_classes, dat_dir, num_per_class, num_per_class_test, download=False, logtran=True, split="mnist", replace=False):
+def get_mnist(num_classes, dat_dir, num_per_class, num_per_class_test, download=True, logtran=True, split="mnist", replace=False):
     if not logtran:
         tran = transforms.Compose([
             # transforms.Resize((14, 14)),  # Pad 2 pixels on each side (left, top, right, bottom)
-            transforms.ToTensor(),         # Convert image to PyTorch tensor
+            transforms.PILToTensor(),
+            transforms.ConvertImageDtype(torch.float64),  # Preserve CPU image preprocessing precision.
             # transforms.Lambda(lambda x: x.double())
             # transforms.Normalize((0.5,), (0.5,)) # normalize to between (-1,1)
             # LogitTrans(),
@@ -90,7 +91,8 @@ def get_mnist(num_classes, dat_dir, num_per_class, num_per_class_test, download=
     else:
         tran =transforms.Compose([
             # transforms.Resize((14, 14)),  # Pad 2 pixels on each side (left, top, right, bottom)
-            transforms.ToTensor(),         # Convert image to PyTorch tensor
+            transforms.PILToTensor(),
+            transforms.ConvertImageDtype(torch.float64),  # Preserve CPU image preprocessing precision.
             # transforms.Lambda(lambda x: x.double())
             # transforms.Normalize((0.5,), (0.5,)) # normalize to between (-1,1)
             LogitTrans(),
@@ -113,7 +115,8 @@ def get_emnist(num_classes, dat_dir, num_per_class, num_per_class_test, split="m
     if not logtran:
         tran = transforms.Compose([
             # transforms.Resize((14, 14)),  # Pad 2 pixels on each side (left, top, right, bottom)
-            transforms.ToTensor(),         # Convert image to PyTorch tensor
+            transforms.PILToTensor(),
+            transforms.ConvertImageDtype(torch.float64),  # Preserve CPU image preprocessing precision.
             # transforms.Lambda(lambda x: x.double())
             # transforms.Normalize((0.5,), (0.5,)) # normalize to between (-1,1)
             # LogitTrans(),
@@ -121,7 +124,8 @@ def get_emnist(num_classes, dat_dir, num_per_class, num_per_class_test, split="m
     else:
         tran =transforms.Compose([
             # transforms.Resize((14, 14)),  # Pad 2 pixels on each side (left, top, right, bottom)
-            transforms.ToTensor(),         # Convert image to PyTorch tensor
+            transforms.PILToTensor(),
+            transforms.ConvertImageDtype(torch.float64),  # Preserve CPU image preprocessing precision.
             # transforms.Lambda(lambda x: x.double())
             # transforms.Normalize((0.5,), (0.5,)) # normalize to between (-1,1)
             LogitTrans(),

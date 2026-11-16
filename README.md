@@ -95,3 +95,30 @@ In `configs/*.yml`:
 conda env create -f environment.yml
 conda activate my_env
 ```
+
+## Device compatibility
+
+Runners select CUDA, then Apple Silicon MPS, then CPU. CUDA uses
+`DDPStrategy(find_unused_parameters=True)`; MPS uses one device, `strategy="auto"`
+and `precision="32-true"`. Model computations use float32 on MPS and retain
+float64 in CPU/CUDA experiments. Imports do not change PyTorch's default dtype.
+Floating batches are converted before device transfer; labels, indices and masks
+retain their integer/boolean dtypes. CPU conversion for plotting is explicit.
+
+ODE integration retains the existing solvers and tolerances. MPS uses float32
+solver time calculations. Differentiable MPS ODE solves use direct autograd to
+avoid a native PyTorch 2.2 MPS assertion in the flattened adjoint state. This
+requires more memory than adjoint differentiation; CPU/CUDA retain the adjoint
+method. CPU fallback is not enabled.
+
+Run the focused regressions with:
+
+```bash
+PYTORCH_ENABLE_MPS_FALLBACK=0 python -m unittest discover -s tests -v
+```
+
+The suite checks CPU float32/float64 and, when available, real MPS float32,
+including distributions, batch transfer, one Lightning optimizer step, sequence
+models, ODE likelihoods and analytic ODE gradients. MPS tests skip when unavailable.
+The MNIST mixture posterior now sizes its input from `flow.pi_dim`; checkpoints
+from the previous incorrectly sized posterior layer will need regeneration.

@@ -13,6 +13,7 @@ import numpy as np
 import copy
 
 from utils import dict2namespace
+from compat import select_device
 
 
 RUNNERS = {
@@ -169,7 +170,7 @@ def parse_args_and_config():
                     os.makedirs(args.image_folder)
 
     # add device
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    device = select_device()
     logging.info("Using device: {}".format(device))
     new_config.device = device
 

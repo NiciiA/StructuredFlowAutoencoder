@@ -68,7 +68,8 @@ def to_one_hot(z, num_classes):
         z = torch.tensor(z)
     
     # Create a one-hot encoding of the batch
-    one_hot = torch.zeros(z.size(0), num_classes)
+    one_hot = torch.zeros(z.size(0), num_classes, device=z.device,
+                          dtype=torch.float32 if z.device.type == "mps" else torch.get_default_dtype())
     one_hot.scatter_(1, z.unsqueeze(1), 1)
     return one_hot
 
