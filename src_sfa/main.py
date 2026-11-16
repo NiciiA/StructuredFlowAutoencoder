@@ -66,6 +66,7 @@ def parse_args_and_config():
     args.log_path = os.path.join(args.exp, 'logs', args.doc)
 
     # parse config file
+    print(os.path.join('configs', args.config))
     with open(os.path.join('configs', args.config), 'r') as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
     new_config = dict2namespace(config)

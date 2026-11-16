@@ -564,13 +564,17 @@ class PinWheelRunner():
 		# Initialize the Trainer
 
 		if torch.cuda.is_available():
-			accelerator='gpu'
-			strategy="ddp"
-			devices="auto"
-		else:
-			accelerator='cpu'
-			devices="auto"
+			accelerator = "gpu"
+			strategy = "ddp"
+			devices = "auto"
+		elif torch.backends.mps.is_available():
+			accelerator = "mps"
 			strategy = "auto"
+			devices = 1
+		else:
+			accelerator = "cpu"
+			strategy = "auto"
+			devices = "auto"
 
 		self.trainer = pl.Trainer(
 			max_epochs=self.config.training.n_epochs, 
@@ -668,13 +672,17 @@ class MNISTRunner():
 		# Initialize the Trainer
 
 		if torch.cuda.is_available():
-			accelerator='gpu'
-			strategy="ddp"
-			devices="auto"
-		else:
-			accelerator='cpu'
-			devices="auto"
+			accelerator = "gpu"
+			strategy = "ddp"
+			devices = "auto"
+		elif torch.backends.mps.is_available():
+			accelerator = "mps"
 			strategy = "auto"
+			devices = 1
+		else:
+			accelerator = "cpu"
+			strategy = "auto"
+			devices = "auto"
 
 		plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
 		plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))
@@ -783,13 +791,17 @@ class HVGRunner():
 		# Initialize the Trainer
 
 		if torch.cuda.is_available():
-			accelerator='gpu'
-			strategy="ddp"
-			devices="auto"
-		else:
-			accelerator='cpu'
-			devices="auto"
+			accelerator = "gpu"
+			strategy = "ddp"
+			devices = "auto"
+		elif torch.backends.mps.is_available():
+			accelerator = "mps"
 			strategy = "auto"
+			devices = 1
+		else:
+			accelerator = "cpu"
+			strategy = "auto"
+			devices = "auto"
 
 		plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
 		plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))

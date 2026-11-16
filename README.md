@@ -37,22 +37,20 @@ SFA/
 ## Training
 
 ```bash
-cd src_sfa
-
 # MNIST with mixture latent
-python main.py --config mnist.yml --runner mnist_mixture --ni
+python src_sfa/main.py --config mnist.yml --runner mnist_mixture --ni
 
 # MNIST with continuous latent
-python main.py --config mnist.yml --runner mnist --ni
+python src_sfa/main.py --config mnist.yml --runner mnist --ni
 
 # Pinwheel with mixture latent
-python main.py --config pinwheel_discrete.yml --runner pinwheel_mixture --ni
+python src_sfa/main.py --config pinwheel_discrete.yml --runner pinwheel_mixture --ni
 
 # Pinwheel with continuous latent
-python main.py --config pinwheel.yml --runner pinwheel --ni
+python src_sfa/main.py --config pinwheel.yml --runner pinwheel --ni
 
 # Pendulum sequences
-python main.py --config pendulum.yml --runner pendulum --ni
+python src_sfa/main.py --config pendulum.yml --runner pendulum --ni
 ```
 
 `--ni` suppresses interactive prompts (auto-overwrites existing logs). Logs and checkpoints are saved to `exp/logs/<runner_name>/`.
@@ -60,23 +58,23 @@ python main.py --config pendulum.yml --runner pendulum --ni
 ### Resume training
 
 ```bash
-python main.py --config mnist.yml --runner mnist_mixture --resume_training --ni
+python src_sfa/main.py --config mnist.yml --runner mnist_mixture --resume_training --ni
 ```
 
 ### Custom log folder
 
 ```bash
-python main.py --config mnist.yml --runner mnist_mixture --doc my_experiment --ni
+python src_sfa/main.py --config mnist.yml --runner mnist_mixture --doc my_experiment --ni
 ```
 
 ## Evaluation
 
 ```bash
 # Test / evaluation
-python main.py --config mnist.yml --runner mnist_mixture --test --ni
+python src_sfa/main.py --config mnist.yml --runner mnist_mixture --test --ni
 
 # Generate figures
-python main.py --config mnist.yml --runner mnist_mixture --figure --ni
+python src_sfa/main.py --config mnist.yml --runner mnist_mixture --figure --ni
 ```
 
 ## Key Config Options

@@ -308,13 +308,17 @@ class PinWheelMixtureRunner():
         # Initialize the Trainer
 
         if torch.cuda.is_available():
-            accelerator='gpu'
-            strategy=DDPStrategy(find_unused_parameters=True)
-            devices="auto"
-        else:
-            accelerator='cpu'
-            devices="auto"
+            accelerator = "gpu"
+            strategy = DDPStrategy(find_unused_parameters=True)
+            devices = "auto"
+        elif torch.backends.mps.is_available():
+            accelerator = "mps"
             strategy = "auto"
+            devices = 1
+        else:
+            accelerator = "cpu"
+            strategy = "auto"
+            devices = "auto"
 
         llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))
         # Add the callback
@@ -948,13 +952,17 @@ class MNISTMixtureRunner():
         # Initialize the Trainer
 
         if torch.cuda.is_available():
-            accelerator='gpu'
-            strategy=DDPStrategy(find_unused_parameters=True)
-            devices="auto"
-        else:
-            accelerator='cpu'
-            devices="auto"
+            accelerator = "gpu"
+            strategy = DDPStrategy(find_unused_parameters=True)
+            devices = "auto"
+        elif torch.backends.mps.is_available():
+            accelerator = "mps"
             strategy = "auto"
+            devices = 1
+        else:
+            accelerator = "cpu"
+            strategy = "auto"
+            devices = "auto"
 
         # Add the callback
         plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)

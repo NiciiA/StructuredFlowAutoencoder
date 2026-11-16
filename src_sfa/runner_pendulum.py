@@ -351,13 +351,17 @@ class PENDULUMRunner():
         )
 
         if torch.cuda.is_available():
-            accelerator='gpu'
-            strategy="ddp"
-            devices="auto"
-        else:
-            accelerator='cpu'
-            devices="auto"
+            accelerator = "gpu"
+            strategy = "ddp"
+            devices = "auto"
+        elif torch.backends.mps.is_available():
+            accelerator = "mps"
             strategy = "auto"
+            devices = 1
+        else:
+            accelerator = "cpu"
+            strategy = "auto"
+            devices = "auto"
 
         plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1, logy=True)
         plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("val_log_lik", "val_log_post"))
