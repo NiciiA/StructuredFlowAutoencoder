@@ -1,0 +1,33 @@
+training:
+  batch_size: 256
+  n_epochs: 201
+  ae_epochs: 50
+  flow_epochs: 151
+  snapshot_freq: 10
+data:
+  n_classes: 10
+  dataset: MNIST
+  samplesize: 5000
+  test_samplesize: 300
+  size: 28
+  channel: 1
+  num_workers: 0
+  logit_transform: true
+  in_sample: true
+model:
+  latent_dim: 32
+  hidden_features:
+  - 256
+  - 256
+  flow_hidden_features:
+  - 256
+  - 256
+optim:
+  lr: 0.0005
+  weight_decay: 0.0001
+sample:
+  n_gen: 100
+  steps: 100
+evaluation:
+  n_samples: 512
+  projections: 128

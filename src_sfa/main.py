@@ -23,6 +23,18 @@ RUNNERS = {
     "pinwheel_mixture": ("runner_mixture", "PinWheelMixtureRunner"),
     "mnist_mixture": ("runner_mixture", "MNISTMixtureRunner"),
     "pendulum": ("runner_pendulum", "PENDULUMRunner"),
+    "pinwheel_vae": ("runner_baselines", "VAERunner"),
+    "mnist_vae": ("runner_baselines", "VAERunner"),
+    "pinwheel_latentfm": ("runner_baselines", "LatentFMRunner"),
+    "mnist_latentfm": ("runner_baselines", "LatentFMRunner"),
+    "pinwheel_fm": ("runner_baselines", "FMRunner"),
+    "mnist_fm": ("runner_baselines", "FMRunner"),
+    "hvg_vae": ("runner_baselines", "VAERunner"),
+    "hvg_latentfm": ("runner_baselines", "LatentFMRunner"),
+    "hvg_fm": ("runner_baselines", "FMRunner"),
+    "pendulum_vae": ("runner_baselines", "VAERunner"),
+    "pendulum_latentfm": ("runner_baselines", "LatentFMRunner"),
+    "pendulum_fm": ("runner_baselines", "FMRunner"),
 }
 
 
@@ -60,6 +72,11 @@ def parse_args_and_config():
     parser.add_argument('--resume_training', action='store_true', help='Whether to resume training')
     parser.add_argument('-i', '--image_folder', type=str, default='data', help="The folder name of samples")
     parser.add_argument('--ni', action='store_true', help="No interaction. Suitable for Slurm Job launcher")
+
+    parser.add_argument('--checkpoint', help='Baseline checkpoint for --sample/--test')
+    parser.add_argument('--smoke-test', action='store_true', help='Small baseline run; leaves YAML unchanged')
+    parser.add_argument('--evaluation-split', choices=['validation', 'test'], help='Held-out RNA/Pendulum baseline split')
+    parser.add_argument('--record-comparison', action='store_true', help='Record SFA parameter count and training time')
 
     args = parser.parse_args()
     if args.doc is None:
@@ -200,8 +217,18 @@ def main():
         runner_cls = _get_runner_cls(args.runner)
         runner = runner_cls(args, config)
 
+        if args.record_comparison and not hasattr(runner, 'kind'):
+            from evaluation_baselines import TrainingTimer
+            runner.trainer.callbacks.append(TrainingTimer(
+                os.path.join(args.log_path, 'comparison_summary.json'),
+                dict(seed=args.seed, runner=args.runner, dataset=config.data.dataset,
+                     device=str(config.device))))
+
         if args.test:
-            raise NotImplementedError("Implement Test.")
+            if hasattr(runner, 'kind'):
+                runner.sample()
+            else:
+                raise NotImplementedError("Implement Test.")
         elif args.sample:
             runner.sample()
         elif args.inference:
@@ -216,8 +243,9 @@ def main():
             raise NotImplementedError("Implement FID.")
         else:
             runner.train()
-    except:
+    except Exception:
         logging.error(traceback.format_exc())
+        return 1
 
     return 0
 

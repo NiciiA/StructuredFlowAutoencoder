@@ -122,3 +122,28 @@ including distributions, batch transfer, one Lightning optimizer step, sequence
 models, ODE likelihoods and analytic ODE gradients. MPS tests skip when unavailable.
 The MNIST mixture posterior now sizes its input from `flow.pi_dim`; checkpoints
 from the previous incorrectly sized posterior layer will need regeneration.
+
+## Baseline experiments
+
+The baselines use the existing Pinwheel generator, MNIST train/test datasets,
+stratified MNIST samplers, preprocessing, Lightning training and device selection.
+Their YAML files copy the dataset counts, batch sizes and optimizer settings from
+`pinwheel_discrete.yml` and `mnist.yml`. Use the same `--seed` for SFA and each
+baseline. The MLPs are intentionally smaller than SFA; parameter counts are
+reported rather than claiming capacity equivalence.
+
+```bash
+python src_sfa/main.py --config pinwheel_vae.yml --runner pinwheel_vae --seed 123 --ni
+python src_sfa/main.py --config mnist_vae.yml --runner mnist_vae --seed 123 --ni
+python src_sfa/main.py --config pinwheel_latentfm.yml --runner pinwheel_latentfm --seed 123 --ni
+python src_sfa/main.py --config mnist_latentfm.yml --runner mnist_latentfm --seed 123 --ni
+python src_sfa/main.py --config pinwheel_fm.yml --runner pinwheel_fm --seed 123 --ni
+
+python src_sfa/main.py --config hvg_vae.yml --runner hvg_vae --seed 123 --ni
+python src_sfa/main.py --config hvg_latentfm.yml --runner hvg_latentfm --seed 123 --ni
+python src_sfa/main.py --config hvg_fm.yml --runner hvg_fm --seed 123 --ni
+python src_sfa/main.py --config pendulum_vae.yml --runner pendulum_vae --seed 123 --ni
+python src_sfa/main.py --config pendulum_latentfm.yml --runner pendulum_latentfm --seed 123 --ni
+python src_sfa/main.py --config pendulum_fm.yml --runner pendulum_fm --seed 123 --ni
+python src_sfa/main.py --config mnist_fm.yml --runner mnist_fm --seed 123 --ni
+```

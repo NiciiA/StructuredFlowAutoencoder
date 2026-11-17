@@ -1,0 +1,45 @@
+# Joint MLP over each complete S-frame window, split by source trajectory; no LDS prior.
+training:
+  batch_size: 64
+  n_epochs: 301
+  ae_epochs: 75
+  flow_epochs: 226
+  snapshot_freq: 10
+data:
+  n: 2
+  p: 10
+  S: 40
+  Stotal: 100
+  q: 5
+  theta: 0.3
+  sin: true
+  channel: 1
+  gen: false
+  samebatch: false
+  stride: 1
+  dataset: PENDULUM
+  samplesize: 200
+  test_samplesize: 50
+  num_workers: 0
+  root: data
+  val_root: data_test
+  test_root: null
+  logit_transform: true
+model:
+  latent_dim: 32
+  hidden_features:
+  - 256
+  - 256
+  flow_hidden_features:
+  - 256
+  - 256
+optim:
+  lr: 0.0008
+  weight_decay: 0.0001
+sample:
+  n_gen: 8
+  steps: 100
+evaluation:
+  n_samples: 128
+  projections: 128
+  split: validation
