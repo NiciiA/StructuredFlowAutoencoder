@@ -1,5 +1,7 @@
 # SFA: Stochastic Flow Analysis
 
+[Open the DD2610 notebook in Google Colab](https://colab.research.google.com/github/NiciiA/StructuredFlowAutoencoder/blob/dd2610-colab-english/DD2610_Colab.ipynb) · [View the notebook](DD2610_Colab.ipynb) · [Experiment guide](dd2610/README.md)
+
 Flow matching framework for generative modeling with mixture latent variables across multiple data modalities.
 
 ## Project Structure
