@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "frozen",
+  "frozen_at_utc": "2026-11-13T18:31:09.761502+00:00",
+  "hash_algorithm": "sha256",
+  "files": {
+    "model.py": "582b1246d36339683fbb9554e3ec5826bb9794a07b7652d876814e19aa74da22",
+    "train.py": "ba2015f52cce6d52204ce3bc2661575d8f5ec9a8769cf0ea60b1239d818bd7d8",
+    "PROVENANCE.md": "6ad4f10106513b14a64ff96ad8093d28083db6e079bf87a8c6a2dc3870a0b896",
+    "smoke_test.py": "ab6b11bfa1accf59ec56d55701e411e425308c158db63e58c0ad1c0899180371",
+    "smoke_results.json": "b8dca5779b337c0fd2b05e30026f4dde4ce1145e07a65905e673c7df211772fb",
+    "smoke_run/summary.json": "dbe2ec076ce3b262872b67c74444c663228b82110c9fa7002c0597df185ea07f"
+  },
+  "input_paper": {
+    "path": "/Users/dwei/Documents/ChatGPT/DD2610 final project/references/12981_Structured_Flow_Autoenco.txt",
+    "sha256": "0ef606c5362e92da31446d591665b3f9e62e84595c5a45ccb21b8405efc29e15"
+  },
+  "research_inputs": "Only the supplied paper text; no external code, web sources, or author repository.",
+  "verification": {
+    "smoke_checks": "passed",
+    "brief_pinwheel_training": "passed",
+    "optional_real_mnist": "not run",
+    "cuda": "not run"
+  },
+  "limitation": "This isolates inference-time research inputs; it does not certify absence from model pretraining."
+}

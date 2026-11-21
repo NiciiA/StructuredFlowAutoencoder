@@ -1,0 +1,57 @@
+[
+  {
+    "dataset": "pinwheel",
+    "method": "sfa_k1",
+    "exit_code": 0
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "sfa_k4",
+    "exit_code": 0
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "sfa_cross",
+    "exit_code": 0
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "fm",
+    "exit_code": 0
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "vae",
+    "exit_code": 0
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "latent_fm",
+    "exit_code": 0
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "paper_only",
+    "exit_code": 0
+  },
+  {
+    "dataset": "mnist",
+    "method": "sfa_k1",
+    "exit_code": 0
+  },
+  {
+    "dataset": "mnist",
+    "method": "paper_only",
+    "exit_code": 0
+  },
+  {
+    "dataset": "mnist",
+    "method": "vae",
+    "exit_code": 0
+  },
+  {
+    "dataset": "mnist",
+    "method": "latent_fm",
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "width": 256,
+  "depth": 3,
+  "z_dim": 32,
+  "epochs": 50,
+  "batch_size": 128,
+  "freqs": 4,
+  "posterior_freqs": 2,
+  "alpha": 0.01,
+  "ode_steps": 100
+}

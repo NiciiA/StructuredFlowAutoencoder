@@ -1,0 +1,37 @@
+{
+  "dataset": "mnist",
+  "profile": "full",
+  "split_seed": 2026,
+  "labels_for_training": false,
+  "protocol": "proposal_disjoint_splits_v1",
+  "official_test_never_used_for_validation": true,
+  "preprocessing": "uint8/255; lambda=1e-6 squeezed logit",
+  "resolution": 28,
+  "fixed_test_subset": "first 1000 of seeded test permutation",
+  "n_classes": 10,
+  "counts": {
+    "train": 54000,
+    "val": 6000,
+    "test": 10000
+  },
+  "input_shape": [
+    1,
+    28,
+    28
+  ],
+  "split_id_sha256": {
+    "train": "4b62fbd3dc00f204a4e25e5ede688e14a9eb59e11ee62495c2a96451765de0e5",
+    "val": "49cf143dda8e9c1f4f0a0cdefa4d947a378c86e07a304630502aeaa3aa31b320",
+    "test": "df3534f8e8f5b3e42f310cd827b3aef6f39737d6fcd9119f5070de63e070ac34"
+  },
+  "data_sha256": {
+    "train": "073ed715823535bd5b870e8d056b67efe5ebddb03d8dfd64b6f55c46db90db32",
+    "val": "8b365151c176da12e06c04cbc2be7c8ad8e6e2f089bf708fcaa2064a3eac34cf",
+    "test": "7a16c924c823c26ea3da586a2d25381eea764200fd99751bb035196de21a7812"
+  },
+  "label_sha256": {
+    "train": "2275f38aee4548c160f61289cfdf1a1f716c1911b868bb4ca0a3689eab3d1cee",
+    "val": "930fd6e47296fce0ba33eb19fe2c939ef79a5205e4ae35bc444eece040e04ac9",
+    "test": "16ea042db37b1487d3efe10a7055594362fee296e46c9beb906671d90879ed28"
+  }
+}

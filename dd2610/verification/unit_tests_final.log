@@ -1,0 +1,10 @@
+test_all_author_model_backward (test_protocol.ProtocolTests) ... ok
+test_author_k1_matches_extension (test_protocol.ProtocolTests) ... ok
+test_data_counts_and_fixed_splits (test_protocol.ProtocolTests) ... ok
+test_estimator_draw_order_and_gradients (test_protocol.ProtocolTests) ... ok
+test_metrics_known_cases (test_protocol.ProtocolTests) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.191s
+
+OK

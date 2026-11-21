@@ -1,0 +1,11 @@
+{
+  "width": 256,
+  "depth": 3,
+  "z_dim": 32,
+  "epochs": 50,
+  "batch_size": 128,
+  "model_type": "mlp_high",
+  "activation": "softplus",
+  "alpha": 0.001,
+  "ode_steps": 100
+}

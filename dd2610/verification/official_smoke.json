@@ -1,0 +1,18 @@
+[
+  {
+    "dataset": "pinwheel",
+    "exit_code": 0
+  },
+  {
+    "dataset": "mnist",
+    "exit_code": 0
+  },
+  {
+    "dataset": "mnist_mixture",
+    "exit_code": 0
+  },
+  {
+    "dataset": "pendulum",
+    "exit_code": 0
+  }
+]

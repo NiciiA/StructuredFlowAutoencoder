@@ -1,0 +1,11 @@
+{
+  "width": 16,
+  "depth": 1,
+  "posterior_freqs": 2,
+  "epochs": 1,
+  "batch_size": 16,
+  "eval_samples": 16,
+  "probe_train_samples": 32,
+  "eval_batch_size": 16,
+  "ode_steps": 4
+}

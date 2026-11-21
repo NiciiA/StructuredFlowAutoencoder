@@ -1,0 +1,6 @@
+{
+  "status": "pass",
+  "interrupted_epoch": 2,
+  "method": "latent_fm",
+  "exact_parameter_equality": true
+}

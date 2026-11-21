@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "torch_version": "2.8.0",
+  "results": [
+    {
+      "test": "finite_nonzero_gradients",
+      "x_dim": 2,
+      "component": "posterior",
+      "gradient_norm": 0.09313147044619859
+    },
+    {
+      "test": "finite_nonzero_gradients",
+      "x_dim": 2,
+      "component": "field",
+      "gradient_norm": 2.3972036903490035
+    },
+    {
+      "test": "single_draw_objective_exact_agreement",
+      "x_dim": 2,
+      "loss": 4.41091251373291
+    },
+    {
+      "test": "shape_positive_scale_finite_sampling",
+      "x_dim": 2
+    },
+    {
+      "test": "finite_nonzero_gradients",
+      "x_dim": 784,
+      "component": "posterior",
+      "gradient_norm": 6.239002685298363
+    },
+    {
+      "test": "finite_nonzero_gradients",
+      "x_dim": 784,
+      "component": "field",
+      "gradient_norm": 217.4674836505736
+    },
+    {
+      "test": "single_draw_objective_exact_agreement",
+      "x_dim": 784,
+      "loss": 1701.61181640625
+    },
+    {
+      "test": "shape_positive_scale_finite_sampling",
+      "x_dim": 784
+    },
+    {
+      "test": "forward_time_ode_and_input_preservation",
+      "passed": true
+    },
+    {
+      "test": "seeded_five_balanced_arms",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "initial_validation_loss": 3.5550602078437805,
+  "best_validation_loss": 3.2926039695739746,
+  "best_epoch": 12,
+  "test_loss_at_best_validation": 3.229661285877228,
+  "epochs": 12,
+  "output": "/Users/dwei/Documents/ChatGPT/DD2610 final project/paper_only/smoke_run",
+  "claim": "Training diagnostic only; not a reproduction of published metrics"
+}

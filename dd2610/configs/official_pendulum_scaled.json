@@ -1,0 +1,11 @@
+{
+  "width": 256,
+  "depth": 2,
+  "epochs": 50,
+  "batch_size": 16,
+  "sequence_length": 20,
+  "trajectory_length": 60,
+  "window_stride": 10,
+  "ode_steps": 100,
+  "eval_samples": 24
+}
